@@ -1,4 +1,4 @@
-# Emergency Crisis Monitor
+# Verity
 
 A self-healing information pipeline for tracking natural disasters and accidents in real time — wildfires, floods, earthquakes, and similar events.
 
