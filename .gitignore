@@ -1,0 +1,6 @@
+.env
+LFM2.5-2.6B/
+data/
+__pycache__/
+*.ipynb_checkpoints
+.DS_Store

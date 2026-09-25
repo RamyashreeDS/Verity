@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Verity — Long Horizon Agents Hack</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="assets/metrics.js"></script>
+<style>
+  :root {
+    --bg: #0b0d12; --bg2: #12151d; --panel: #171b25; --line: #262c3a;
+    --text: #e8eaf0; --muted: #8e97ab; --red: #ef4444; --orange: #f59e0b; --blue: #38bdf8; --green: #34d399; --grey: #6b7280;
+    --r-background-color: var(--bg);
+    --r-main-font: 'Inter', -apple-system, system-ui, sans-serif;
+    --r-heading-font: 'Inter', -apple-system, system-ui, sans-serif;
+    --r-main-color: var(--text);
+    --r-heading-color: var(--text);
+    --r-main-font-size: 30px;
+    --r-heading-text-transform: none;
+    --r-heading-letter-spacing: -0.02em;
+    --r-heading-font-weight: 700;
+    --r-link-color: var(--blue);
+  }
+  .reveal, .reveal p, .reveal li, .reveal td, .reveal th { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; color: var(--text); }
+  html, body, .reveal-viewport, .reveal { background: var(--bg); }
+  .reveal { font-weight: 400; font-size: 30px; }
+  .reveal h1, .reveal h2, .reveal h3 { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; color: var(--text); text-transform: none; letter-spacing: -0.02em; font-weight: 700; }
+  .reveal .slides { text-align: left; }
+  .reveal .slides section, .reveal .slides section > * { transition: none; }
+  .reveal .slides section { padding: 0 40px; box-sizing: border-box; height: 100%; }
+  .reveal h1 { font-size: 3.6em; font-weight: 800; letter-spacing: -0.04em; margin: 0; line-height: 1; }
+  .reveal h2 { font-size: 1.9em; margin: 0 0 .5em; line-height: 1.15; }
+  .reveal h3 { font-size: 1.05em; font-weight: 600; margin: 0 0 .3em; }
+  .reveal p { margin: 0 0 .5em; line-height: 1.45; }
+  .reveal ul { margin: 0; }
+  .reveal li { margin-bottom: .35em; line-height: 1.4; }
+  .reveal strong { color: #fff; font-weight: 600; }
+  .reveal img { margin: 0; max-width: 100%; }
+  .muted { color: var(--muted); }
+  .small { font-size: .7em; }
+  .tiny { font-size: .55em; }
+  .kicker { font-size: .6em; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--red); margin-bottom: 1.2em; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+  .accent { color: var(--red); }
+  .blue { color: var(--blue); } .orange { color: var(--orange); } .green { color: var(--green); }
+
+  .grid { display: grid; gap: 28px; align-items: start; }
+  .g2 { grid-template-columns: 1fr 1fr; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 22px 26px; }
+  .card h3 { margin-bottom: .4em; }
+  .card p, .card li { font-size: .72em; color: #c5cbd8; }
+  .pill { display: inline-block; padding: 2px 12px; border-radius: 999px; font-size: .55em; font-weight: 600; letter-spacing: .04em; }
+  .pill.red { background: rgba(239,68,68,.15); color: var(--red); border: 1px solid rgba(239,68,68,.35); }
+  .pill.orange { background: rgba(245,158,11,.15); color: var(--orange); border: 1px solid rgba(245,158,11,.35); }
+  .pill.blue { background: rgba(56,189,248,.15); color: var(--blue); border: 1px solid rgba(56,189,248,.35); }
+  .pill.green { background: rgba(52,211,153,.15); color: var(--green); border: 1px solid rgba(52,211,153,.35); }
+  .pill.grey { background: rgba(107,114,128,.2); color: #b0b7c6; border: 1px solid rgba(107,114,128,.4); }
+  .shadow { border-radius: 14px; box-shadow: 0 30px 80px rgba(0,0,0,.55); border: 1px solid var(--line); }
+  .footer { position: absolute; bottom: 22px; left: 40px; right: 40px; display: flex; justify-content: space-between; font-size: .5em; color: var(--muted); letter-spacing: .04em; }
+
+  /* title */
+  .title-wrap { height: 100%; display: flex; flex-direction: column; justify-content: center; position: relative; }
+  .title-wrap .glow { position: absolute; right: -120px; top: 60px; width: 620px; height: 620px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(239,68,68,.35), rgba(245,158,11,.12) 45%, transparent 70%); filter: blur(10px); }
+  .logo { display: inline-flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .logo .mark { width: 54px; height: 54px; border-radius: 14px; background: linear-gradient(135deg, var(--red), var(--orange)); position: relative; }
+  .logo .mark::after { content: ""; position: absolute; inset: 15px 12px; border-radius: 4px; background: repeating-linear-gradient(135deg, #fff 0 8px, transparent 8px 16px); opacity: .9; }
+  .tagline { font-size: 1.25em; color: #c5cbd8; margin-top: 26px; max-width: 900px; font-weight: 300; }
+  .tagline strong { font-weight: 600; }
+
+  /* chaos slide */
+  .chaos { position: relative; height: 480px; }
+  .chip { position: absolute; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; font-size: .62em; color: #c5cbd8; max-width: 330px; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  .chip .src { font-size: .8em; color: var(--muted); display: block; margin-bottom: 4px; letter-spacing: .04em; text-transform: uppercase; }
+  .chip.hl { border-color: rgba(239,68,68,.6); }
+  .chip.hl .src { color: var(--red); }
+
+  /* loop */
+  .loop { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-top: 10px; }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px 16px 44px; position: relative; min-height: 270px; box-sizing: border-box; }
+  .step .n { font-family: 'JetBrains Mono', monospace; font-size: .55em; color: var(--muted); }
+  .step h3 { font-size: .9em; margin: .3em 0 .35em; }
+  .step p { font-size: .58em; color: #b8c0d0; margin: 0 0 .6em; }
+  .step .tool { font-size: .55em; font-weight: 600; color: var(--orange); position: absolute; bottom: 16px; left: 16px; }
+  .step.forget { border-color: rgba(239,68,68,.55); background: linear-gradient(180deg, rgba(239,68,68,.12), var(--panel)); }
+
+  /* lifecycle */
+  .life { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 10px; }
+  .lstep { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px 14px 40px; position: relative; min-height: 190px; box-sizing: border-box; }
+  .lstep:not(:last-child)::after { content: "→"; position: absolute; right: -15px; top: 40%; color: var(--muted); font-size: .8em; }
+  .lstep.alt { border-style: dashed; border-color: rgba(239,68,68,.55); }
+  .lstep .n { font-family: 'JetBrains Mono', monospace; font-size: .5em; color: var(--muted); }
+  .lstep h3 { font-size: .8em; margin: .25em 0 .3em; }
+  .lstep p { font-size: .52em; color: #b8c0d0; margin: 0; }
+  .lstep .val { position: absolute; bottom: 12px; left: 14px; font-size: .5em; font-weight: 600; color: var(--blue); }
+  .lstep .val.grey { color: #b0b7c6; } .lstep .val.green { color: var(--green); } .lstep .val.red { color: var(--red); }
+  .param { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .param > span { font-size: .48em; color: var(--orange); display: block; letter-spacing: .02em; }
+  .param b { display: block; font-size: .8em; margin: 4px 0 6px; color: #fff; }
+  .param p { font-size: .48em; color: #aeb6c6; margin: 0; line-height: 1.4; }
+
+  /* tiers */
+  table.tiers { width: 100%; border-collapse: collapse; font-size: .68em; }
+  table.tiers th { text-align: left; color: var(--muted); font-weight: 600; font-size: .85em; letter-spacing: .06em; text-transform: uppercase; padding: 8px 14px; border-bottom: 1px solid var(--line); }
+  table.tiers td { padding: 13px 14px; border-bottom: 1px solid var(--line); vertical-align: top; color: #c5cbd8; }
+  table.tiers tr.ctx td { background: rgba(56,189,248,.08); color: #fff; }
+
+  .stat { font-size: 2.6em; font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+  .stat small { display: block; font-size: .28em; font-weight: 500; color: var(--muted); letter-spacing: .04em; margin-top: 10px; }
+
+  .reveal pre { width: 100%; box-shadow: none; margin: 0; font-size: .5em; }
+  .reveal pre code { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; color: #c9d1e0; max-height: none; font-family: 'JetBrains Mono', monospace; line-height: 1.5; }
+
+  .sponsor { display: flex; gap: 18px; align-items: flex-start; }
+  .sponsor .dot { width: 14px; height: 14px; border-radius: 50%; margin-top: 12px; flex: none; }
+  .cards3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .cards3 img { border-radius: 12px; border: 1px solid var(--line); box-shadow: 0 14px 40px rgba(0,0,0,.45); }
+  .reveal .progress { color: var(--red); }
+  .reveal .controls { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+<!-- 1. Title -->
+<section data-background-color="#0b0d12">
+  <div class="title-wrap">
+    <div class="glow"></div>
+    <div class="logo"><span class="mark"></span><span class="mono muted" style="font-size:.6em;letter-spacing:.12em">LONG HORIZON AGENTS HACK · SF · SEP 25, 2026</span></div>
+    <h1>Verity</h1>
+    <p class="tagline">A self-maintaining agent that knows <strong>what's actually happening on the streets</strong> — and stays sharp for days because it <strong>forgets what no longer matters</strong>.</p>
+    <p class="muted small" style="margin-top:36px">On-device Liquid AI LFM2.5 · Nimble · RawTree · FLUX</p>
+  </div>
+</section>
+
+<!-- 2. Problem (from teammate intro) -->
+<section>
+  <div class="kicker">The problem</div>
+  <h2>Quick show of hands — who knew San Francisco flooded yesterday?<br><span class="muted">And which roads were actually affected?</span></h2>
+  <div class="chaos">
+    <div class="chip fragment" style="left:0;top:20px;transform:rotate(-3deg)"><span class="src">r/sanfrancisco · 14h</span>Anyone know if Great Highway is open?? saw water on the news</div>
+    <div class="chip fragment" style="left:360px;top:0;transform:rotate(2deg)"><span class="src">news · 9h</span>Storm floods parts of the city; officials urge caution on low-lying streets</div>
+    <div class="chip fragment" style="left:740px;top:40px;transform:rotate(-1.5deg)"><span class="src">gov PDF · updated ???</span>Temporary Street Closures — 4,628 rows, permit numbers, no map</div>
+    <div class="chip fragment" style="left:80px;top:170px;transform:rotate(1deg)"><span class="src">video · 20h</span>“Cars stuck on Folsom” — location unclear</div>
+    <div class="chip fragment" style="left:470px;top:190px;transform:rotate(-2deg)"><span class="src">search summary</span>Several roads may be impacted. Check local sources for details.</div>
+    <div class="chip hl fragment" style="left:300px;top:340px;transform:rotate(1deg);max-width:520px"><span class="src">the best answer after 10 tabs</span>“…the highway is <strong>likely closed</strong>.”</div>
+  </div>
+  <p class="small muted fragment" style="margin-top:8px">Information exists. It's fragmented across sources, updated at different times, and contradicts itself. You end up with <em>information</em>, not an <em>answer</em>.</p>
+</section>
+
+<!-- 3. The idea -->
+<section>
+  <div class="kicker">The idea</div>
+  <h2>What if an agent's <em>entire job</em> was to continuously maintain the current state of the world for you?</h2>
+  <div class="grid g2" style="margin-top:20px">
+    <div class="card">
+      <h3>Instead of ten links to investigate…</h3>
+      <p>Verity gives you <strong>one evolving view</strong>: what is happening, where, whether cars still get through, until when — and <strong>why it believes that</strong>.</p>
+      <p>Every event carries its claims: sources, when they were seen, and the current state of the evidence — <span class="pill grey">unconfirmed</span> <span class="pill blue">corroborated</span> <span class="pill green">verified</span> <span class="pill red">cleared</span></p>
+    </div>
+    <div class="card">
+      <h3>…and it has to run for days, not minutes</h3>
+      <p>Long-horizon agents break down as observations pile up: slower, costlier, less reliable. Road status is the perfect test — <strong>most road events expire</strong>. A farmers market ends at 2 pm. A parade clears. A flood recedes.</p>
+      <p>So Verity's core isn't scraping. It's an agent that <strong>remembers active events, forgets expired ones, and keeps its context small no matter how long it runs.</strong></p>
+    </div>
+  </div>
+</section>
+
+<!-- 4. Demo -->
+<section>
+  <div class="kicker">Live demo · San Francisco</div>
+  <div class="grid" style="grid-template-columns: 1.35fr 1fr; align-items:center">
+    <img class="shadow" src="assets/app.png" alt="Verity dashboard">
+    <div>
+      <h2 style="font-size:1.5em">One map. Every source. A confidence you can inspect.</h2>
+      <ul class="small">
+        <li><span class="pill red">blocked</span> all lanes closed &nbsp; <span class="pill orange">lanes closed</span> partial &nbsp; <span class="pill grey">unconfirmed</span> dashed</li>
+        <li>Type a report → the on-device model extracts <span class="mono">street, cross streets, blocked?, reason</span> → it appears in seconds, geocoded to the exact block</li>
+        <li><strong>Verify</strong> pulls independent web evidence; confidence rises, grey turns red</li>
+        <li>A “reopened” report <strong>clears</strong> the event — and the old belief stays in history</li>
+        <li>Chart: the agent's context stays flat while a naive agent's transcript grows</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 5. The loop -->
+<section>
+  <div class="kicker">How it works</div>
+  <h2>One loop, every few minutes. Each cycle starts from a <span class="blue">compact state snapshot</span>, never from history.</h2>
+  <div class="loop">
+    <div class="step"><span class="n">01</span><h3>Sense</h3><p>Official closures feed, live web search for news &amp; social, user reports.</p><span class="tool">Nimble · DataSF</span></div>
+    <div class="step"><span class="n">02</span><h3>Understand</h3><p>Free text → event JSON in ~3 s, on the laptop. No article stays in context.</p><span class="tool">Liquid AI LFM2.5</span></div>
+    <div class="step"><span class="n">03</span><h3>Resolve</h3><p>Geocode to real street segments. Same block → merge sources, combine confidence.</p><span class="tool">Deterministic code</span></div>
+    <div class="step"><span class="n">04</span><h3>Verify</h3><p>A lone social post triggers an independent web check. Evidence → confidence up. Silence → decay.</p><span class="tool">Nimble</span></div>
+    <div class="step forget"><span class="n">05</span><h3 class="accent">Forget</h3><p>Retire expired events, decay stale rumors, compact over-cap state into one-line digests.</p><span class="tool">Explicit rules</span></div>
+    <div class="step"><span class="n">06</span><h3>Publish</h3><p>Map, ledger, and a shareable alert card for confirmed closures.</p><span class="tool">RawTree · FLUX</span></div>
+  </div>
+  <p class="small muted" style="margin-top:22px"><strong style="color:#fff">LLMs interpret. Code enforces.</strong> The model proposes claims; deterministic rules decide what enters the world state, what gets merged, and what gets forgotten.</p>
+</section>
+
+<!-- 6. Memory design -->
+<section>
+  <div class="kicker">Memory design</div>
+  <h2>Four tiers of memory. <span class="blue">Only one</span> ever enters the model's context.</h2>
+  <div class="grid" style="grid-template-columns: 1.3fr 1fr">
+    <table class="tiers">
+      <tr><th>Tier</th><th>Holds</th><th>Lives in</th><th>In context?</th></tr>
+      <tr><td><strong>0 · Raw observations</strong></td><td>Every page, post, feed row — hashed for dedup</td><td>RawTree</td><td>Never</td></tr>
+      <tr><td><strong>1 · Event ledger</strong></td><td>Every version of every event: status, confidence, sources</td><td>RawTree</td><td>Only via SQL</td></tr>
+      <tr><td><strong>2 · Digests</strong></td><td>One line per retired event</td><td>RawTree</td><td>Only when recalled</td></tr>
+      <tr class="ctx"><td><strong>3 · Working state</strong></td><td>Active events, one line each</td><td>Rendered each cycle</td><td><strong>Always · capped ≈ 4K tokens</strong></td></tr>
+    </table>
+    <div class="card">
+      <h3 class="accent">Forgetting rules (in code, visible in the log)</h3>
+      <ul>
+        <li>Scheduled closures retire at <span class="mono">ends_at</span> + 30 min</li>
+        <li>Unconfirmed social reports lose <strong>0.15 confidence / hour</strong>; dropped below 0.2</li>
+        <li>Over the token cap → lowest severity × confidence folded into a digest first</li>
+        <li>A “reopened” report clears the event; the prior belief stays in the ledger</li>
+      </ul>
+      <p class="tiny muted" style="margin-top:10px">Recall is a SQL query, not context: <span class="mono">“Has Market St closed like this before?”</span></p>
+    </div>
+  </div>
+</section>
+
+<!-- 6b. Update & discard lifecycle -->
+<section>
+  <div class="kicker">How memory is updated — and how it is discarded</div>
+  <h2 style="font-size:1.5em">The life of one report: <span class="muted">“Protesters blocking Market St at 5th right now”</span></h2>
+  <div class="life">
+    <div class="lstep"><span class="n">t = 0</span><h3>Observe &amp; dedup</h3><p>Hash the text. Seen before → dropped before it costs a token.</p><span class="val mono">sha1 → new</span></div>
+    <div class="lstep"><span class="n">+3 s</span><h3>Extract</h3><p>LFM2.5 → <span class="mono">{street, cross, blocked}</span>. The article never enters state; one 25-token line does.</p><span class="val mono grey">conf 0.30 · unconfirmed</span></div>
+    <div class="lstep"><span class="n">+1 min</span><h3>Corroborate</h3><p>News page found. Same block → merge sources: <span class="mono">1 − (1−0.3)(1−0.8)</span></p><span class="val mono green">conf 0.86 · active</span></div>
+    <div class="lstep"><span class="n">+2 h</span><h3>Update</h3><p>“Reopened” from a trusted source → event <strong>cleared</strong>; a one-line digest is written, the version history stays in the ledger.</p><span class="val mono">→ digest, cleared</span></div>
+    <div class="lstep alt"><span class="n">or…</span><h3>Nobody confirms</h3><p>Still social-only? Confidence drops 0.15 every hour: 0.30 → 0.15 → <strong>dropped</strong> below 0.20.</p><span class="val mono red">forgotten in ~1 h</span></div>
+  </div>
+  <div class="grid" style="grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 18px">
+    <div class="param"><span class="mono">TRUST</span><b style="font-size:.62em">gov .95 · news .80<br>social .30</b><p>Prior credibility per source kind. Combined as independent evidence, never averaged.</p></div>
+    <div class="param"><span class="mono">CONFIRM_THRESHOLD</span><b>0.70</b><p>Below it: grey, dashed, “unconfirmed”. At or above: shown as active, eligible for an alert card.</p></div>
+    <div class="param"><span class="mono">RETIRE_BUFFER</span><b>30 min</b><p>Scheduled closures leave the working state 30 min after <span class="mono">ends_at</span> — grace for late clean-up.</p></div>
+    <div class="param"><span class="mono">DECAY_PER_HOUR</span><b>0.15</b><p>Unconfirmed social reports lose confidence each simulated hour they go uncorroborated.</p></div>
+    <div class="param"><span class="mono">DROP_BELOW</span><b>0.20</b><p>Decayed past this → retired with reason “unconfirmed social report decayed”.</p></div>
+    <div class="param"><span class="mono">CONTEXT_CAP_TOKENS</span><b>4,000</b><p>Hard ceiling on working state. Over it, the lowest severity × confidence events are folded into digests first.</p></div>
+  </div>
+  <p class="tiny muted" style="margin-top:14px">Nothing is ever deleted: every create / merge / verify / retire is a row in RawTree with its reason. Only the <em>context</em> forgets.</p>
+</section>
+
+<!-- 7. Proof -->
+<section>
+  <div class="kicker">The proof</div>
+  <h2>One simulated week of real SF closures, replayed hour by hour.</h2>
+  <div class="grid" style="grid-template-columns: 1.6fr 1fr; align-items:center">
+    <div class="card" style="padding:18px 22px"><canvas id="proof" height="330"></canvas></div>
+    <div>
+      <div class="stat blue">1,885<small>peak context tokens — flat all week</small></div>
+      <div class="stat" style="color:var(--red);margin-top:34px">41,063<small>tokens a naive append-everything agent carries by day 7 — and still growing</small></div>
+      <div class="stat" style="margin-top:34px;font-size:1.7em;white-space:nowrap">184 <span class="muted" style="font-size:.55em;font-weight:500">created</span> &nbsp;·&nbsp; 152 <span class="muted" style="font-size:.55em;font-weight:500">forgotten</span><small style="font-size:.4em">events over 168 cycles; ~32 active at any time</small></div>
+    </div>
+  </div>
+</section>
+
+<!-- 7b. Memory & token utilization page -->
+<section>
+  <div class="kicker">Memory &amp; token utilization · live in the product</div>
+  <div class="grid" style="grid-template-columns: 1.25fr 1fr; align-items:center">
+    <img class="shadow" src="assets/memory.png" alt="Memory and token utilization page">
+    <div>
+      <h2 style="font-size:1.45em">Every token accounted for. Every forgotten event explained.</h2>
+      <div class="grid g2" style="gap:14px;margin:6px 0 18px">
+        <div class="card" style="padding:14px 18px"><div class="stat blue" style="font-size:1.6em">41×<small>smaller context than a naive agent after one week</small></div></div>
+        <div class="card" style="padding:14px 18px"><div class="stat" style="font-size:1.6em;color:var(--orange)">165<small>events forgotten · 3,996 context tokens reclaimed</small></div></div>
+      </div>
+      <ul class="small">
+        <li><strong>Utilization bar</strong> against the 4K cap — 28% used after 365 cycles</li>
+        <li><strong>Per-event cost</strong>: one ~25-token line in context vs. 260+ tokens of raw source</li>
+        <li><strong>Discard ledger</strong>: which rule fired — <span class="pill blue">expired</span> <span class="pill grey">decayed</span> <span class="pill green">cleared</span> <span class="pill orange">compacted</span> — and the tokens it freed</li>
+        <li><strong>Four tiers</strong> with live counts: raw docs and ledger in RawTree; only the working state in context</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 8. Trust model -->
+<section>
+  <div class="kicker">Trust, not vibes</div>
+  <h2>Confidence is a state of the evidence, not a number the model made up.</h2>
+  <div class="grid g3">
+    <div class="card"><h3>Source weights</h3><p><span class="mono">gov 0.95 · news 0.80 · social 0.30</span></p><p>Independent sources combine: <span class="mono">1 − Π(1 − wᵢ)</span>. One tweet is a rumor. A tweet plus a news page is 0.86.</p></div>
+    <div class="card"><h3>Threshold to act</h3><p>An event shows as <strong>active</strong> only at ≥ 0.70. Below that it's drawn dashed and grey — visible, but honest about being unconfirmed.</p></div>
+    <div class="card"><h3>Allowed to say “I don't know”</h3><p>No corroboration? Confidence decays every cycle until the rumor is dropped and written to a digest. No silent overwrite; every change is a ledger row with a reason.</p></div>
+  </div>
+  <pre style="margin-top:24px"><code>[Fri 15:07] + NEW ?  Parade: huge parade blocking traffic on Market St between 5th St and 8th St (conf 0.3)
+[Fri 15:07] ✓ VERIFIED Market St via Nimble (5 matching pages) → conf 0.86
+[Fri 15:07] 🖼 FLUX alert card ready for Market St between 5th St and 8th St
+[Sat 20:00] − FORGET Jack Kerouac - Vesuvio 2026 — ended 09-20 19:00</code></pre>
+</section>
+
+<!-- 9. Stack -->
+<section>
+  <div class="kicker">The stack</div>
+  <h2>Each tool has one job, and each job is visible in the demo.</h2>
+  <div class="grid g2" style="row-gap:22px">
+    <div class="card sponsor"><span class="dot" style="background:var(--orange)"></span><div><h3>Nimble — the eyes</h3><p>Live web search for news and social; independent verification of single-source rumors.</p></div></div>
+    <div class="card sponsor"><span class="dot" style="background:var(--blue)"></span><div><h3>Liquid AI LFM2.5-2.6B — the brain, on device</h3><p>Runs inside the agent process on a MacBook GPU. Turns any text into event JSON in ~3 s. No API, no server, no article in context.</p></div></div>
+    <div class="card sponsor"><span class="dot" style="background:var(--green)"></span><div><h3>RawTree — the long-term memory</h3><p>Schemaless JSON ingest, SQL over HTTP. Observations, the full event ledger, digests and per-cycle agent metrics. Recall is a query.</p></div></div>
+    <div class="card sponsor"><span class="dot" style="background:var(--red)"></span><div><h3>FLUX (Black Forest Labs) — the visual layer</h3><p>A shareable alert card per confirmed closure, labeled as an illustration. Never a fake photo of a real incident.</p></div></div>
+  </div>
+  <p class="small muted" style="margin-top:18px">Plus DataSF Temporary Street Closures &amp; street centerlines for ground truth and geocoding. Adding a city means adding sources, not changing the agent.</p>
+</section>
+
+<!-- 10. Closing -->
+<section>
+  <div class="kicker">Closing</div>
+  <h2>Today, the most reliable answer means ten tabs and reconciling them yourself.<br><span class="accent">With Verity, it's right under your fingertip.</span></h2>
+  <div class="cards3" style="margin-top:14px">
+    <img src="assets/card_3.jpg" alt="Alert card: protest">
+    <img src="assets/card_parade.jpg" alt="Alert card: parade">
+    <img src="assets/card_blockparty.jpg" alt="Alert card: block party">
+  </div>
+  <p class="small muted" style="margin-top:22px">Floods were the example. The same agent handles crashes, construction, parades, protests, strikes — anything that temporarily changes the world around you.</p>
+  <div class="footer"><span>VERITY · LONG HORIZON AGENTS HACK · SEP 25, 2026</span><span>github.com/&lt;team&gt;/verity</span></div>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script>
+  Reveal.initialize({ hash: true, width: 1280, height: 720, margin: 0.06, transition: 'fade', transitionSpeed: 'fast', controlsTutorial: false, slideNumber: 'c/t' });
+
+  const m = window.METRICS || [];
+  new Chart(document.getElementById('proof'), {
+    type: 'line',
+    data: { labels: m.map(x => x[0]), datasets: [
+      { label: 'Verity working-state tokens', data: m.map(x => x[1]), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,.12)', fill: true, borderWidth: 3, pointRadius: 0, tension: .25 },
+      { label: 'Naive append-everything tokens', data: m.map(x => x[2]), borderColor: '#ef4444', borderWidth: 3, pointRadius: 0, tension: .25 },
+    ]},
+    options: { animation: false, responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#c5cbd8', boxWidth: 14, font: { family: 'Inter', size: 14 } } } },
+      scales: { x: { ticks: { color: '#8e97ab', maxTicksLimit: 8, font: { family: 'JetBrains Mono', size: 11 } }, grid: { color: 'rgba(255,255,255,.05)' } },
+                y: { beginAtZero: true, ticks: { color: '#8e97ab', font: { family: 'Inter', size: 12 }, callback: v => v.toLocaleString() }, grid: { color: 'rgba(255,255,255,.06)' } } } }
+  });
+</script>
+</body>
+</html>

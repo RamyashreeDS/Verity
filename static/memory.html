@@ -1,0 +1,192 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>RoadWatch SF — Memory & tokens</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.45 -apple-system, system-ui, sans-serif; background: #0f1115; color: #e6e6e6; }
+  header { display: flex; align-items: center; gap: 14px; padding: 10px 18px; background: #171a21; border-bottom: 1px solid #2a2f3a; position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 17px; margin: 0; }
+  header a { color: #7fd1ff; text-decoration: none; font-weight: 600; }
+  #clock { font: 600 15px ui-monospace, monospace; color: #7fd1ff; }
+  main { max-width: 1280px; margin: 0 auto; padding: 16px 18px 40px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .wide { grid-column: 1 / -1; }
+  section { background: #171a21; border: 1px solid #2a2f3a; border-radius: 10px; padding: 14px 16px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #9aa4b8; margin: 0 0 10px; }
+  .muted { color: #8b93a5; font-size: 12px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .kpi { background: #0f1115; border: 1px solid #2a2f3a; border-radius: 8px; padding: 12px 14px; }
+  .kpi b { display: block; font-size: 26px; letter-spacing: -.02em; line-height: 1.1; }
+  .kpi span { color: #8b93a5; font-size: 11px; }
+  .blue { color: #38bdf8; } .red { color: #f87171; } .green { color: #34d399; } .orange { color: #f59e0b; }
+  .bar { height: 14px; background: #0f1115; border: 1px solid #2a2f3a; border-radius: 7px; overflow: hidden; margin: 8px 0 4px; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #38bdf8, #2563eb); }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { text-align: left; color: #8b93a5; font-weight: 600; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid #2a2f3a; }
+  td { padding: 6px 8px; border-bottom: 1px solid #20252f; vertical-align: top; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pill { display: inline-block; padding: 0 7px; border-radius: 9px; font-size: 11px; font-weight: 600; }
+  .blocked { background: #dc2626; } .partial { background: #d97706; } .unconf { background: #6b7280; }
+  .expired { background: #1d4ed8; } .decayed { background: #6b7280; } .cleared { background: #059669; } .compacted { background: #7c3aed; } .other { background: #444; }
+  .scroll { max-height: 360px; overflow-y: auto; }
+  pre { font: 11px/1.45 ui-monospace, monospace; white-space: pre-wrap; color: #c9d1e0; background: #0f1115; border: 1px solid #2a2f3a; border-radius: 8px; padding: 10px; max-height: 300px; overflow-y: auto; margin: 0; }
+  .tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .tier { border: 1px solid #2a2f3a; border-radius: 8px; padding: 10px 12px; background: #0f1115; }
+  .tier.ctx { border-color: #38bdf8; background: rgba(56,189,248,.07); }
+  .tier h3 { margin: 0 0 4px; font-size: 13px; }
+  .tier b { font-size: 20px; display: block; margin: 4px 0; }
+  .rule { display: flex; gap: 10px; align-items: baseline; padding: 5px 0; border-bottom: 1px solid #20252f; }
+  .rule:last-child { border: none; }
+</style>
+</head>
+<body>
+<header>
+  <a href="/">← Map</a>
+  <h1>🧠 Memory &amp; token utilization</h1>
+  <span id="clock">—</span>
+  <span class="muted">cycle <span id="cycle">0</span> · long-term memory: <span id="store">—</span></span>
+</header>
+<main>
+  <section class="wide">
+    <h2>What the model sees each cycle vs. what a naive agent would carry</h2>
+    <div class="kpis">
+      <div class="kpi"><b class="blue" id="kCtx">0</b><span>tokens in working context right now</span><div class="bar"><i id="capBar" style="width:0%"></i></div><span id="capText" class="muted"></span></div>
+      <div class="kpi"><b class="red" id="kNaive">0</b><span>tokens if every observation were appended to the prompt (naive agent)</span></div>
+      <div class="kpi"><b class="green" id="kSave">0×</b><span>smaller context than naive · <span id="kSavePct"></span> of tokens never sent to the model</span></div>
+      <div class="kpi"><b class="orange" id="kForgot">0</b><span>events forgotten so far · <span id="kFreed"></span> context tokens reclaimed</span></div>
+    </div>
+  </section>
+
+  <section class="wide">
+    <h2>Token utilization over time</h2>
+    <canvas id="chart" height="110"></canvas>
+    <div class="muted">Blue stays flat because expired and stale events are removed from the working state. Red is the transcript a naive agent would keep re-sending. Dashed = active events (right axis).</div>
+  </section>
+
+  <section>
+    <h2>Four memory tiers — only one enters the context</h2>
+    <div class="tiers">
+      <div class="tier"><h3>0 · Raw observations</h3><b id="tObs">0</b><span class="muted">documents, <span id="tObsTok">0</span> tokens · stored, never in context</span></div>
+      <div class="tier"><h3>1 · Event ledger</h3><b id="tLedger">0</b><span class="muted">event versions · recalled via SQL only</span></div>
+      <div class="tier"><h3>2 · Digests</h3><b id="tDig">0</b><span class="muted">one-line summaries, <span id="tDigTok">0</span> tokens · recalled on demand</span></div>
+      <div class="tier ctx"><h3>3 · Working state</h3><b id="tCtx" class="blue">0</b><span class="muted">tokens · always in context · cap <span id="tCap"></span></span></div>
+    </div>
+    <p class="muted" style="margin:10px 0 0">Everything below tier 3 lives in <span id="storeName">RawTree</span> (<span id="storeRows">0</span> rows ingested). The planner never reads it directly; it asks questions in SQL.</p>
+  </section>
+
+  <section>
+    <h2>How information gets discarded</h2>
+    <div id="rules"></div>
+    <table style="margin-top:10px">
+      <thead><tr><th>Rule fired</th><th class="num">events</th><th class="num">ctx tokens freed</th><th class="num">digest tokens (stored, not in context)</th></tr></thead>
+      <tbody id="byRule"></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Inside the context right now — per-event cost</h2>
+    <div class="muted" style="margin-bottom:6px">Each active event costs one line (~<span id="avgLine">0</span> tokens) regardless of how big its source documents were.</div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Event</th><th>Status</th><th class="num">in context</th><th class="num">raw source</th><th>until</th></tr></thead>
+        <tbody id="events"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recently forgotten (and why)</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>When</th><th>Rule</th><th>Event</th><th>Reason</th></tr></thead>
+        <tbody id="forgotten"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="wide">
+    <h2>The exact working-state text sent to the model (<span id="ctxTok2">0</span> tokens)</h2>
+    <pre id="context"></pre>
+  </section>
+</main>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+const fmt = n => (n ?? 0).toLocaleString();
+const chart = new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'Working context tokens', data: [], borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,.15)', fill: true, pointRadius: 0, tension: .2, yAxisID: 'y' },
+    { label: 'Naive append-everything tokens', data: [], borderColor: '#f87171', pointRadius: 0, tension: .2, yAxisID: 'y' },
+    { label: 'Active events', data: [], borderColor: '#f59e0b', borderDash: [4, 4], pointRadius: 0, tension: .2, yAxisID: 'y2' },
+  ]},
+  options: { animation: false, plugins: { legend: { labels: { color: '#c9d1e0', boxWidth: 12 } } },
+    scales: { x: { ticks: { color: '#8b93a5', maxTicksLimit: 10 } },
+              y: { beginAtZero: true, ticks: { color: '#8b93a5', callback: v => v.toLocaleString() }, grid: { color: 'rgba(255,255,255,.06)' } },
+              y2: { position: 'right', beginAtZero: true, ticks: { color: '#f59e0b' }, grid: { display: false } } } }
+});
+
+function render(d) {
+  document.getElementById('clock').textContent = d.now;
+  document.getElementById('cycle').textContent = fmt(d.cycle);
+  document.getElementById('store').textContent = d.store.name;
+  document.getElementById('kCtx').textContent = fmt(d.context_tokens);
+  document.getElementById('kNaive').textContent = fmt(d.naive_tokens);
+  const ratio = d.naive_tokens / Math.max(1, d.context_tokens);
+  document.getElementById('kSave').textContent = ratio.toFixed(1) + '×';
+  document.getElementById('kSavePct').textContent = d.naive_tokens ? (100 * (1 - d.context_tokens / d.naive_tokens)).toFixed(1) + '%' : '0%';
+  const forgot = Object.values(d.by_rule).reduce((a, b) => a + b.count, 0);
+  const freed = Object.values(d.by_rule).reduce((a, b) => a + b.tokens_freed, 0);
+  document.getElementById('kForgot').textContent = fmt(forgot);
+  document.getElementById('kFreed').textContent = fmt(freed);
+  const pct = Math.min(100, 100 * d.context_tokens / d.cap);
+  document.getElementById('capBar').style.width = pct + '%';
+  document.getElementById('capText').textContent = `${pct.toFixed(0)}% of the ${fmt(d.cap)}-token cap`;
+
+  chart.data.labels = d.metrics.map(m => m.t);
+  chart.data.datasets[0].data = d.metrics.map(m => m.compact);
+  chart.data.datasets[1].data = d.metrics.map(m => m.naive);
+  chart.data.datasets[2].data = d.metrics.map(m => m.active);
+  chart.update();
+
+  document.getElementById('tObs').textContent = fmt(d.observations);
+  document.getElementById('tObsTok').textContent = fmt(d.naive_tokens);
+  document.getElementById('tLedger').textContent = fmt(d.counts.new + d.counts.merged + d.counts.retired);
+  document.getElementById('tDig').textContent = fmt(forgot);
+  document.getElementById('tDigTok').textContent = fmt(Object.values(d.by_rule).reduce((a, b) => a + b.digest_tokens, 0));
+  document.getElementById('tCtx').textContent = fmt(d.context_tokens);
+  document.getElementById('tCap').textContent = fmt(d.cap);
+  document.getElementById('storeName').textContent = d.store.name;
+  document.getElementById('storeRows').textContent = fmt(d.store.inserted);
+
+  document.getElementById('rules').innerHTML = d.rules.map(r => `<div class="rule"><span class="pill ${r.rule}">${r.rule}</span><span>${esc(r.text)}</span></div>`).join('');
+  document.getElementById('byRule').innerHTML = Object.entries(d.by_rule).sort((a, b) => b[1].count - a[1].count).map(([k, v]) =>
+    `<tr><td><span class="pill ${k}">${k}</span></td><td class="num">${fmt(v.count)}</td><td class="num">${fmt(v.tokens_freed)}</td><td class="num">${fmt(v.digest_tokens)}</td></tr>`).join('') ||
+    '<tr><td colspan="4" class="muted">Nothing forgotten yet — wait for an event to expire.</td></tr>';
+
+  const avg = d.events.length ? Math.round(d.events.reduce((a, e) => a + e.context_tokens, 0) / d.events.length) : 0;
+  document.getElementById('avgLine').textContent = avg;
+  document.getElementById('events').innerHTML = d.events.map(e => {
+    const cls = e.confidence < 0.7 ? 'unconf' : e.status;
+    return `<tr><td><b>${esc(e.title)}</b><br><span class="muted">${esc(e.street)} · ${e.kind} · ${e.sources} src</span></td>
+      <td><span class="pill ${cls}">${e.confidence < 0.7 ? 'unconfirmed' : e.status}</span></td>
+      <td class="num blue">${e.context_tokens}</td><td class="num muted">${fmt(e.raw_tokens)}</td><td class="muted">${esc(e.ends_at)}</td></tr>`;
+  }).join('');
+
+  document.getElementById('forgotten').innerHTML = d.forgotten.map(f =>
+    `<tr><td class="muted">${f.ts}</td><td><span class="pill ${f.rule}">${f.rule}</span></td><td><b>${esc(f.title)}</b><br><span class="muted">${esc(f.street)}</span></td><td class="muted">${esc(f.why)} · −${f.tokens_freed} tok</td></tr>`).join('') ||
+    '<tr><td colspan="4" class="muted">Nothing forgotten yet.</td></tr>';
+
+  document.getElementById('context').textContent = d.context;
+  document.getElementById('ctxTok2').textContent = fmt(d.context_tokens);
+}
+
+async function poll() {
+  try { render(await (await fetch('/api/memory')).json()); } catch (e) { console.error(e); }
+  setTimeout(poll, 1500);
+}
+poll();
+</script>
+</body>
+</html>

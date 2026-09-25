@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>RoadWatch SF</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 -apple-system, system-ui, sans-serif; background: #0f1115; color: #e6e6e6; }
+  header { display: flex; align-items: center; gap: 12px; padding: 8px 14px; background: #171a21; border-bottom: 1px solid #2a2f3a; }
+  header h1 { font-size: 17px; margin: 0; }
+  #clock { font: 600 16px ui-monospace, monospace; color: #7fd1ff; margin-left: 8px; }
+  button, select { background: #2a3140; color: #eee; border: 1px solid #3b4456; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 12px; }
+  button:hover { background: #36405a; }
+  button.primary { background: #2563eb; border-color: #2563eb; }
+  main { display: grid; grid-template-columns: 1fr 440px; height: calc(100vh - 47px); }
+  #map { height: 100%; }
+  aside { overflow-y: auto; padding: 10px; border-left: 1px solid #2a2f3a; }
+  section { background: #171a21; border: 1px solid #2a2f3a; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #9aa4b8; margin: 0 0 8px; }
+  textarea, input { width: 100%; background: #0f1115; color: #eee; border: 1px solid #3b4456; border-radius: 6px; padding: 6px; font: inherit; }
+  .row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .ev { padding: 6px 0; border-bottom: 1px solid #242935; }
+  .ev:last-child { border: none; }
+  .pill { display: inline-block; padding: 0 6px; border-radius: 9px; font-size: 11px; font-weight: 600; margin-right: 4px; }
+  .blocked { background: #dc2626; } .partial { background: #d97706; } .unconf { background: #6b7280; }
+  .muted { color: #8b93a5; font-size: 12px; }
+  #log, #context, #recallOut { font: 11px/1.45 ui-monospace, monospace; white-space: pre-wrap; max-height: 190px; overflow-y: auto; color: #c9d1e0; }
+  #busy { color: #fbbf24; font-weight: 600; }
+  .stats { display: flex; gap: 14px; margin-bottom: 6px; }
+  .stats b { font-size: 18px; display: block; }
+  .legend span { margin-right: 10px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🚧 RoadWatch SF</h1><span id="clock">—</span>
+  <button onclick="ctl('pause')" id="pauseBtn">Pause</button>
+  <select onchange="ctl('speed', +this.value)" id="speed">
+    <option value="60">1 min / s</option>
+    <option value="600">10 min / s</option>
+    <option value="3600" selected>1 hour / s</option>
+    <option value="10800">3 hours / s</option>
+  </select>
+  <button onclick="ctl('replay', +document.getElementById('speed').value)">⏮ Replay last week</button>
+  <button onclick="ctl('live')">● Live (now)</button>
+  <span id="busy"></span>
+  <a href="/memory" style="color:#7fd1ff;text-decoration:none;font-weight:600;margin-left:6px">🧠 Memory &amp; tokens →</a>
+  <span class="legend muted" style="margin-left:auto">
+    <span><span class="pill blocked">&nbsp;</span>blocked</span>
+    <span><span class="pill partial">&nbsp;</span>lanes closed</span>
+    <span><span class="pill unconf">&nbsp;</span>unconfirmed</span>
+  </span>
+</header>
+<main>
+  <div id="map"></div>
+  <aside>
+    <section>
+      <h2>Report a road status (LFM2.5 on this laptop extracts it)</h2>
+      <textarea id="reportText" rows="3">Protesters are blocking Market St at 5th St right now, cars can't get through</textarea>
+      <div class="row">
+        <select id="reportKind"><option value="social">as social post (trust 0.3)</option><option value="news">as news article (trust 0.8)</option></select>
+        <button class="primary" onclick="sendReport()">Send report</button>
+        <button onclick="document.getElementById('reportText').value='Market St at 5th St has reopened, protest is over'">"Reopened" example</button>
+        <button onclick="api('/api/scan_news', 'POST')">🔎 Scan web news (Nimble)</button>
+      </div>
+    </section>
+    <section>
+      <h2>Agent memory</h2>
+      <div class="stats">
+        <div><b id="sActive">0</b><span class="muted">active</span></div>
+        <div><b id="sNew">0</b><span class="muted">new</span></div>
+        <div><b id="sMerged">0</b><span class="muted">merged</span></div>
+        <div><b id="sRetired">0</b><span class="muted">forgotten</span></div>
+        <div><b id="sCtx">0</b><span class="muted">context tok</span></div>
+        <div><b id="sNaive">0</b><span class="muted">naive tok</span></div>
+      </div>
+      <canvas id="chart" height="150"></canvas>
+      <div class="muted">Context = one line per active event (what a planner model sees each cycle). Naive = every observation ever appended.</div>
+    </section>
+    <section>
+      <h2>Reports &amp; unconfirmed events</h2>
+      <div id="reports" class="muted">None yet. Send a report above.</div>
+    </section>
+    <section>
+      <h2>Alert cards (FLUX by Black Forest Labs · AI illustrations)</h2>
+      <div id="cards" class="muted"></div>
+    </section>
+    <section>
+      <h2>Agent log</h2>
+      <div id="log"></div>
+    </section>
+    <section>
+      <h2>Recall from long-term memory (<span id="storeName">SQL</span>, not context)</h2>
+      <div class="muted" id="storeStats" style="margin-bottom:6px"></div>
+      <div class="row" style="margin-top:0"><input id="recallQ" value="Market St" style="flex:1"><button onclick="recall()">Recall</button></div>
+      <div id="recallOut" class="muted"></div>
+    </section>
+    <section>
+      <h2>Working state the model sees (compact context)</h2>
+      <div id="context"></div>
+    </section>
+  </aside>
+</main>
+<script>
+const map = L.map('map').setView([37.7749, -122.4194], 13);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 19 }).addTo(map);
+const layer = L.layerGroup().addTo(map);
+let state = null;
+
+const chart = new Chart(document.getElementById('chart'), {
+  type: 'line',
+  data: { labels: [], datasets: [
+    { label: 'RoadWatch context tokens', data: [], borderColor: '#38bdf8', pointRadius: 0, tension: .2 },
+    { label: 'Naive append-everything tokens', data: [], borderColor: '#f87171', pointRadius: 0, tension: .2 },
+  ]},
+  options: { animation: false, scales: { x: { ticks: { color: '#8b93a5', maxTicksLimit: 6 } }, y: { beginAtZero: true, ticks: { color: '#8b93a5' } } },
+             plugins: { legend: { labels: { color: '#c9d1e0', boxWidth: 12 } } } }
+});
+
+async function api(url, method = 'GET', body) {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+  return r.json();
+}
+const ctl = (action, speed) => api('/api/control', 'POST', { action, speed });
+const sendReport = () => api('/api/report', 'POST', { text: document.getElementById('reportText').value, kind: document.getElementById('reportKind').value });
+const esc = s => String(s ?? '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+function color(ev) {
+  if (ev.confidence < state.threshold) return '#9ca3af';
+  return ev.status === 'blocked' ? '#ef4444' : '#f59e0b';
+}
+
+function draw() {
+  layer.clearLayers();
+  for (const ev of state.events) {
+    if (!ev.geometry) continue;
+    const unconf = ev.confidence < state.threshold;
+    const style = { color: color(ev), weight: ev.kind === 'gov' ? 5 : 8, opacity: .9, dashArray: unconf ? '6 6' : null };
+    const popup = `<b>${esc(ev.title)}</b><br>${esc(ev.streets.join('; '))}<br>${esc(ev.status)} · until ${esc(ev.ends_at.slice(5, 16))}<br>` +
+      `confidence ${ev.confidence} · ${ev.sources.length} source(s): ${esc(ev.sources.map(s => s.kind).join(', '))}<br><i>${esc(ev.summary)}</i>` +
+      (ev.card ? `<br><img src="${ev.card}" style="width:260px;margin-top:6px;border-radius:6px">`
+               : (ev.status === 'blocked' && ev.confidence >= state.threshold ? `<br><button style="margin-top:6px" onclick="api('/api/card/${ev.id}','POST')">🖼 Alert card (FLUX)</button>` : ''));
+    const g = ev.geometry.type === 'Point'
+      ? L.circleMarker([ev.geometry.coordinates[1], ev.geometry.coordinates[0]], { ...style, radius: 10, fillOpacity: .6 })
+      : L.geoJSON(ev.geometry, { style: () => style });
+    g.bindPopup(popup).addTo(layer);
+  }
+}
+
+function render() {
+  document.getElementById('clock').textContent = state.now;
+  document.getElementById('pauseBtn').textContent = state.paused ? 'Resume' : 'Pause';
+  const sel = document.getElementById('speed');
+  if (document.activeElement !== sel) {
+    if (![...sel.options].some(o => +o.value === state.speed)) sel.add(new Option(state.speed === 1 ? 'real time' : `${state.speed}x`, state.speed));
+    sel.value = state.speed;
+  }
+  document.getElementById('busy').textContent = state.busy.length ? '⏳ ' + state.busy.join(', ') + '…' : '';
+  const m = state.metrics.at(-1) || {};
+  for (const [id, k] of [['sActive', 'active'], ['sNew', 'new'], ['sMerged', 'merged'], ['sRetired', 'retired'], ['sCtx', 'compact'], ['sNaive', 'naive']])
+    document.getElementById(id).textContent = (m[k] ?? 0).toLocaleString();
+  chart.data.labels = state.metrics.map(x => x.t);
+  chart.data.datasets[0].data = state.metrics.map(x => Math.max(1, x.compact));
+  chart.data.datasets[1].data = state.metrics.map(x => Math.max(1, x.naive));
+  chart.update();
+  document.getElementById('log').textContent = state.log.join('\n');
+  if (state.store) {
+    document.getElementById('storeName').textContent = state.store.name + ' SQL';
+    document.getElementById('storeStats').textContent =
+      `${state.store.name}: ${state.store.inserted.toLocaleString()} rows ingested · ${state.store.queries} queries` +
+      (state.store.errors ? ` · ${state.store.errors} errors (${state.store.last_error})` : '');
+  }
+  document.getElementById('context').textContent = state.context;
+  const reps = state.events.filter(e => e.kind !== 'gov' || e.sources.length > 1);
+  document.getElementById('reports').innerHTML = reps.length ? reps.map(ev => {
+    const unconf = ev.confidence < state.threshold;
+    const cls = unconf ? 'unconf' : ev.status === 'blocked' ? 'blocked' : 'partial';
+    const label = unconf ? 'UNCONFIRMED' : ev.status.toUpperCase();
+    return `<div class="ev"><span class="pill ${cls}">${label}</span><b>${esc(ev.streets[0])}</b> — ${esc(ev.title)}<br>
+      <span class="muted">conf ${ev.confidence} · sources: ${esc(ev.sources.map(s => s.kind).join(', '))} · until ${esc(ev.ends_at.slice(5, 16))}</span>
+      ${ev.kind !== 'gov' ? `<button style="float:right" onclick="api('/api/verify/${ev.id}','POST')">Verify via Nimble</button>` : ''}
+      ${ev.geometry ? `<button style="float:right;margin-right:4px" onclick="zoom('${ev.id}')">Show</button>` : ''}
+      ${!ev.card && !unconf && ev.status === 'blocked' ? `<button style="float:right;margin-right:4px" onclick="api('/api/card/${ev.id}','POST')">🖼 Alert card</button>` : ''}
+      ${ev.card ? `<a href="${ev.card}" target="_blank"><img src="${ev.card}" style="width:100%;margin-top:6px;border-radius:6px;display:block"></a>` : ''}</div>`;
+  }).join('') : 'None yet. Send a report above.';
+  const cards = state.cards || [];
+  document.getElementById('cards').innerHTML = cards.length ? cards.map(c =>
+    `<a href="${c.url}" target="_blank"><img src="${c.url}" title="${esc(c.street)}" style="width:100%;border-radius:6px;margin-bottom:6px;display:block"></a>`).join('')
+    : 'Click "Alert card" on a confirmed blocked event, or on any red segment on the map.';
+  draw();
+}
+
+function zoom(id) {
+  const ev = state.events.find(e => e.id === id);
+  if (!ev?.geometry) return;
+  const g = ev.geometry.type === 'Point' ? L.latLng(ev.geometry.coordinates[1], ev.geometry.coordinates[0]) : L.geoJSON(ev.geometry).getBounds();
+  ev.geometry.type === 'Point' ? map.setView(g, 16) : map.fitBounds(g, { maxZoom: 17 });
+}
+
+async function recall() {
+  const r = await api('/api/recall?street=' + encodeURIComponent(document.getElementById('recallQ').value));
+  document.getElementById('recallOut').textContent =
+    (r.digests.length ? 'Digests:\n' + r.digests.join('\n') + '\n\n' : '') +
+    'Ledger:\n' + (r.ledger.map(([ts, a, s]) => `${ts.slice(5, 16)}  ${a.padEnd(10)} ${s.slice(0, 70)}`).join('\n') || '(nothing)');
+}
+
+async function poll() {
+  try { state = await api('/api/state'); render(); } catch (e) { console.error(e); }
+  setTimeout(poll, 1000);
+}
+poll();
+</script>
+</body>
+</html>
