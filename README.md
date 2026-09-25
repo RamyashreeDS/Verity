@@ -4,9 +4,9 @@ A self-healing information pipeline for tracking natural disasters and accidents
 
 ## The problem
 
-During a live disaster, information is scattered across many sources, frequently contradictory, and changes by the minute — evacuation status, road closures, shelter availability. Getting it wrong isn't just a bug: bad information at this layer can put people at real risk. Most monitoring tools aggregate and display; they don't know when their own picture of the world has gone stale, contradictory, or broken.
+During a live disaster, information is scattered across many sources, frequently contradictory, and changes by the minute — evacuation status, road closures, shelter availability. Getting it wrong isn't just a bug: bad information  this layer can put people at real risk. Most monitoring tools aggregate and display; they don't know when their own picture of the world has gone stale, contradictory, or broken.
 
-This project builds a monitor that watches its own reliability, not just the disaster — it detects when its understanding is compromised and heals itself before that failure reaches the dashboard.
+This project builds a monitor that watches its own reliabilty, not just the disaster — it detects when its understanding is compromised and heals itself before that failure reaches the dashboard.
 
 ## Architecture
 
