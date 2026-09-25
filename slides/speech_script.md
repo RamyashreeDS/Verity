@@ -1,9 +1,11 @@
 # Verity — Speaker Script
 
 Long Horizon Agents Hack · San Francisco · Sep 25, 2026
-Target: about 4 minutes of speaking plus a 1-minute live demo. Timings are per slide. Cut the bracketed lines if you are short on time.
+12 slides. Target: about 4½ minutes of speaking plus a 1-minute live demo (slide 4). Timings are per slide. If you need to hit 4 minutes total, cut the bracketed lines first, then shorten slides 10 and 11 to one sentence each.
 
-Before you start: have the app open on `http://localhost:8000` in **Live** mode with the speed set to **1 min / s**, the report box pre-filled, and the `/memory` page open in a second tab.
+Slide map: 1 Verity · 2 The problem · 3 The idea · 4 Live demo · 5 How it works · 6 Memory design · 7 How memory is updated and discarded · 8 The proof · 9 Memory & token utilization (live page) · 10 Trust · 11 The stack · 12 Closing
+
+Before you start: have the app open on `http://localhost:8000` in **Live** mode with the speed set to **1 min / s**, the report box pre-filled, and the `/memory` page open in a second tab. If you want big numbers on the memory page, press **Replay last week** at 1 hour / s about three minutes before you go on; it reaches the full week in under three minutes.
 
 ---
 
@@ -123,13 +125,23 @@ Over that week, 184 events were created and 152 were forgotten — about 32 acti
 
 ---
 
-## Slide 9 — Memory & token utilization, live (0:25)
+## Slide 9 — Memory & token utilization, live (0:40)
 
-"And this isn't just a chart we made for the slides — it's a page in the product. *(optionally switch to the /memory tab)*
+"That chart wasn't made for the slides. It's a page in the product, and it updates every cycle. *(switch to the `/memory` tab if time allows; otherwise stay on the slide)*
 
-It shows the utilization bar against the 4K cap; the per-event cost — one 25-token line in context versus 260-plus tokens of raw source; a discard ledger showing which rule fired and how many tokens it freed; and live counts for all four tiers.
+Top row, four numbers. On the left, what the model actually sees right now — about eleven hundred tokens, with a bar showing we're using **28 percent of our 4,000-token cap**. Next to it, the red number: what a naive agent that appends every observation would be carrying — 46,000 tokens and climbing. The green number is the ratio: **41 times smaller**, meaning 97.6 percent of everything we've observed never gets sent to the model. And the orange number: 165 events forgotten so far, with about four thousand context tokens reclaimed.
 
-After a full week running, Verity's context was **41 times smaller** than the naive transcript, with 165 events forgotten and every one of them explained."
+Below that is the same curve over time — blue flat, red rising — with a dashed line for active events. Notice the blue line tracks the dashed line, not the red one: our context scales with **what's happening now**, not with how long we've been running.
+
+Then the four tiers with live counts: how many raw documents are sitting in RawTree, how many ledger versions, how many digests — and the one number that matters for the model, the working state.
+
+The table in the middle is the discard ledger: every rule that fired — expired, decayed, cleared, compacted — how many events it removed, how many context tokens it freed, and how many digest tokens were kept *outside* the context.
+
+And the two tables at the bottom are the receipts. On the left, every active event with its cost: about **25 tokens in context** versus **260-plus tokens of raw source** — that's the compression happening per event. On the right, the last sixty things Verity forgot, each with a timestamp, the rule, and the reason.
+
+*(if the replay is running: 'You can watch the forgotten count climb while the context bar stays put.')*
+
+So when we say memory-efficient, this is what we mean: every token is accounted for, and every forgotten event is explained."
 
 ---
 
