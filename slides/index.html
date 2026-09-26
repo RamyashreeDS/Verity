@@ -7,8 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="assets/metrics.js"></script>
 <style>
   :root {
     --bg: #0b0d12; --bg2: #12151d; --panel: #171b25; --line: #262c3a;
@@ -154,25 +152,7 @@
   <p class="small muted fragment" style="margin-top:8px">Information exists. It's fragmented across sources, updated at different times, and contradicts itself. You end up with <em>information</em>, not an <em>answer</em>.</p>
 </section>
 
-<!-- 3. The idea -->
-<section>
-  <div class="kicker">The idea</div>
-  <h2>What if an agent's <em>entire job</em> was to continuously maintain the current state of the world for you?</h2>
-  <div class="grid g2" style="margin-top:20px">
-    <div class="card">
-      <h3>Instead of ten links to investigate…</h3>
-      <p>Verity gives you <strong>one evolving view</strong>: what is happening, where, whether cars still get through, until when — and <strong>why it believes that</strong>.</p>
-      <p>Every event carries its claims: sources, when they were seen, and the current state of the evidence — <span class="pill grey">unconfirmed</span> <span class="pill blue">corroborated</span> <span class="pill green">verified</span> <span class="pill red">cleared</span></p>
-    </div>
-    <div class="card">
-      <h3>…and it has to run for days, not minutes</h3>
-      <p>Long-horizon agents break down as observations pile up: slower, costlier, less reliable. Road status is the perfect test — <strong>most road events expire</strong>. A farmers market ends at 2 pm. A parade clears. A flood recedes.</p>
-      <p>So Verity's core isn't scraping. It's an agent that <strong>remembers active events, forgets expired ones, and keeps its context small no matter how long it runs.</strong></p>
-    </div>
-  </div>
-</section>
-
-<!-- 4. Demo -->
+<!-- 3. Demo -->
 <section>
   <div class="kicker">Live demo · San Francisco</div>
   <div class="grid" style="grid-template-columns: 1.35fr 1fr; align-items:center">
@@ -190,83 +170,7 @@
   </div>
 </section>
 
-<!-- 5. The loop -->
-<section>
-  <div class="kicker">How it works</div>
-  <h2>One loop, every few minutes. Each cycle starts from a <span class="blue">compact state snapshot</span>, never from history.</h2>
-  <div class="loop">
-    <div class="step"><span class="n">01</span><h3>Sense</h3><p>Official closures feed, live web search for news &amp; social, user reports.</p><span class="tool">Nimble · DataSF</span></div>
-    <div class="step"><span class="n">02</span><h3>Understand</h3><p>Free text → event JSON in ~3 s, on the laptop. No article stays in context.</p><span class="tool">Liquid AI LFM2.5</span></div>
-    <div class="step"><span class="n">03</span><h3>Resolve</h3><p>Geocode to real street segments. Same block → merge sources, combine confidence.</p><span class="tool">Deterministic code</span></div>
-    <div class="step"><span class="n">04</span><h3>Verify</h3><p>A lone social post triggers an independent web check. Evidence → confidence up. Silence → decay.</p><span class="tool">Nimble</span></div>
-    <div class="step forget"><span class="n">05</span><h3 class="accent">Forget</h3><p>Retire expired events, decay stale rumors, compact over-cap state into one-line digests.</p><span class="tool">Explicit rules</span></div>
-    <div class="step"><span class="n">06</span><h3>Publish</h3><p>Map, ledger, and a shareable alert card for confirmed closures.</p><span class="tool">RawTree · FLUX</span></div>
-  </div>
-  <p class="small muted" style="margin-top:22px"><strong style="color:#fff">LLMs interpret. Code enforces.</strong> The model proposes claims; deterministic rules decide what enters the world state, what gets merged, and what gets forgotten.</p>
-</section>
-
-<!-- 6. Memory design -->
-<section>
-  <div class="kicker">Memory design</div>
-  <h2>Four tiers of memory. <span class="blue">Only one</span> ever enters the model's context.</h2>
-  <div class="grid" style="grid-template-columns: 1.3fr 1fr">
-    <table class="tiers">
-      <tr><th>Tier</th><th>Holds</th><th>Lives in</th><th>In context?</th></tr>
-      <tr><td><strong>0 · Raw observations</strong></td><td>Every page, post, feed row — hashed for dedup</td><td>RawTree</td><td>Never</td></tr>
-      <tr><td><strong>1 · Event ledger</strong></td><td>Every version of every event: status, confidence, sources</td><td>RawTree</td><td>Only via SQL</td></tr>
-      <tr><td><strong>2 · Digests</strong></td><td>One line per retired event</td><td>RawTree</td><td>Only when recalled</td></tr>
-      <tr class="ctx"><td><strong>3 · Working state</strong></td><td>Active events, one line each</td><td>Rendered each cycle</td><td><strong>Always · capped ≈ 4K tokens</strong></td></tr>
-    </table>
-    <div class="card">
-      <h3 class="accent">Forgetting rules (in code, visible in the log)</h3>
-      <ul>
-        <li>Scheduled closures retire at <span class="mono">ends_at</span> + 30 min</li>
-        <li>Unconfirmed social reports lose <strong>0.15 confidence / hour</strong>; dropped below 0.2</li>
-        <li>Over the token cap → lowest severity × confidence folded into a digest first</li>
-        <li>A “reopened” report clears the event; the prior belief stays in the ledger</li>
-      </ul>
-      <p class="tiny muted" style="margin-top:10px">Recall is a SQL query, not context: <span class="mono">“Has Market St closed like this before?”</span></p>
-    </div>
-  </div>
-</section>
-
-<!-- 6b. Update & discard lifecycle -->
-<section>
-  <div class="kicker">How memory is updated — and how it is discarded</div>
-  <h2 style="font-size:1.5em">The life of one report: <span class="muted">“Protesters blocking Market St at 5th right now”</span></h2>
-  <div class="life">
-    <div class="lstep"><span class="n">t = 0</span><h3>Observe &amp; dedup</h3><p>Hash the text. Seen before → dropped before it costs a token.</p><span class="val mono">sha1 → new</span></div>
-    <div class="lstep"><span class="n">+3 s</span><h3>Extract</h3><p>LFM2.5 → <span class="mono">{street, cross, blocked}</span>. The article never enters state; one 25-token line does.</p><span class="val mono grey">conf 0.30 · unconfirmed</span></div>
-    <div class="lstep"><span class="n">+1 min</span><h3>Corroborate</h3><p>News page found. Same block → merge sources: <span class="mono">1 − (1−0.3)(1−0.8)</span></p><span class="val mono green">conf 0.86 · active</span></div>
-    <div class="lstep"><span class="n">+2 h</span><h3>Update</h3><p>“Reopened” from a trusted source → event <strong>cleared</strong>; a one-line digest is written, the version history stays in the ledger.</p><span class="val mono">→ digest, cleared</span></div>
-    <div class="lstep alt"><span class="n">or…</span><h3>Nobody confirms</h3><p>Still social-only? Confidence drops 0.15 every hour: 0.30 → 0.15 → <strong>dropped</strong> below 0.20.</p><span class="val mono red">forgotten in ~1 h</span></div>
-  </div>
-  <div class="grid" style="grid-template-columns: repeat(6, 1fr); gap: 12px; margin-top: 18px">
-    <div class="param"><span class="mono">TRUST</span><b style="font-size:.62em">gov .95 · news .80<br>social .30</b><p>Prior credibility per source kind. Combined as independent evidence, never averaged.</p></div>
-    <div class="param"><span class="mono">CONFIRM_THRESHOLD</span><b>0.70</b><p>Below it: grey, dashed, “unconfirmed”. At or above: shown as active, eligible for an alert card.</p></div>
-    <div class="param"><span class="mono">RETIRE_BUFFER</span><b>30 min</b><p>Scheduled closures leave the working state 30 min after <span class="mono">ends_at</span> — grace for late clean-up.</p></div>
-    <div class="param"><span class="mono">DECAY_PER_HOUR</span><b>0.15</b><p>Unconfirmed social reports lose confidence each simulated hour they go uncorroborated.</p></div>
-    <div class="param"><span class="mono">DROP_BELOW</span><b>0.20</b><p>Decayed past this → retired with reason “unconfirmed social report decayed”.</p></div>
-    <div class="param"><span class="mono">CONTEXT_CAP_TOKENS</span><b>4,000</b><p>Hard ceiling on working state. Over it, the lowest severity × confidence events are folded into digests first.</p></div>
-  </div>
-  <p class="tiny muted" style="margin-top:14px">Nothing is ever deleted: every create / merge / verify / retire is a row in RawTree with its reason. Only the <em>context</em> forgets.</p>
-</section>
-
-<!-- 7. Proof -->
-<section>
-  <div class="kicker">The proof</div>
-  <h2>One simulated week of real SF closures, replayed hour by hour.</h2>
-  <div class="grid" style="grid-template-columns: 1.6fr 1fr; align-items:center">
-    <div class="card" style="padding:18px 22px"><canvas id="proof" height="330"></canvas></div>
-    <div>
-      <div class="stat blue">1,885<small>peak context tokens — flat all week</small></div>
-      <div class="stat" style="color:var(--red);margin-top:34px">41,063<small>tokens a naive append-everything agent carries by day 7 — and still growing</small></div>
-      <div class="stat" style="margin-top:34px;font-size:1.7em;white-space:nowrap">184 <span class="muted" style="font-size:.55em;font-weight:500">created</span> &nbsp;·&nbsp; 152 <span class="muted" style="font-size:.55em;font-weight:500">forgotten</span><small style="font-size:.4em">events over 168 cycles; ~32 active at any time</small></div>
-    </div>
-  </div>
-</section>
-
-<!-- 7b. Memory & token utilization page -->
+<!-- 4. Memory & token utilization page -->
 <section>
   <div class="kicker">Memory &amp; token utilization · live in the product</div>
   <div class="grid" style="grid-template-columns: 1.25fr 1fr; align-items:center">
@@ -287,22 +191,7 @@
   </div>
 </section>
 
-<!-- 8. Trust model -->
-<section>
-  <div class="kicker">Trust, not vibes</div>
-  <h2>Confidence is a state of the evidence, not a number the model made up.</h2>
-  <div class="grid g3">
-    <div class="card"><h3>Source weights</h3><p><span class="mono">gov 0.95 · news 0.80 · social 0.30</span></p><p>Independent sources combine: <span class="mono">1 − Π(1 − wᵢ)</span>. One tweet is a rumor. A tweet plus a news page is 0.86.</p></div>
-    <div class="card"><h3>Threshold to act</h3><p>An event shows as <strong>active</strong> only at ≥ 0.70. Below that it's drawn dashed and grey — visible, but honest about being unconfirmed.</p></div>
-    <div class="card"><h3>Allowed to say “I don't know”</h3><p>No corroboration? Confidence decays every cycle until the rumor is dropped and written to a digest. No silent overwrite; every change is a ledger row with a reason.</p></div>
-  </div>
-  <pre style="margin-top:24px"><code>[Fri 15:07] + NEW ?  Parade: huge parade blocking traffic on Market St between 5th St and 8th St (conf 0.3)
-[Fri 15:07] ✓ VERIFIED Market St via Nimble (5 matching pages) → conf 0.86
-[Fri 15:07] 🖼 FLUX alert card ready for Market St between 5th St and 8th St
-[Sat 20:00] − FORGET Jack Kerouac - Vesuvio 2026 — ended 09-20 19:00</code></pre>
-</section>
-
-<!-- 9. Stack -->
+<!-- 5. Stack -->
 <section>
   <div class="kicker">The stack</div>
   <h2>Each tool has one job, and each job is visible in the demo.</h2>
@@ -315,7 +204,7 @@
   <p class="small muted" style="margin-top:18px">Plus DataSF Temporary Street Closures &amp; street centerlines for ground truth and geocoding. Adding a city means adding sources, not changing the agent.</p>
 </section>
 
-<!-- 10. Closing -->
+<!-- 6. Closing -->
 <section>
   <div class="kicker">Closing</div>
   <h2>Today, the most reliable answer means ten tabs and reconciling them yourself.<br><span class="accent">With Verity, it's right under your fingertip.</span></h2>
@@ -334,19 +223,6 @@
 <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
 <script>
   Reveal.initialize({ hash: true, width: 1280, height: 720, margin: 0.06, transition: 'fade', transitionSpeed: 'fast', controlsTutorial: false, slideNumber: 'c/t' });
-
-  const m = window.METRICS || [];
-  new Chart(document.getElementById('proof'), {
-    type: 'line',
-    data: { labels: m.map(x => x[0]), datasets: [
-      { label: 'Verity working-state tokens', data: m.map(x => x[1]), borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,.12)', fill: true, borderWidth: 3, pointRadius: 0, tension: .25 },
-      { label: 'Naive append-everything tokens', data: m.map(x => x[2]), borderColor: '#ef4444', borderWidth: 3, pointRadius: 0, tension: .25 },
-    ]},
-    options: { animation: false, responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { labels: { color: '#c5cbd8', boxWidth: 14, font: { family: 'Inter', size: 14 } } } },
-      scales: { x: { ticks: { color: '#8e97ab', maxTicksLimit: 8, font: { family: 'JetBrains Mono', size: 11 } }, grid: { color: 'rgba(255,255,255,.05)' } },
-                y: { beginAtZero: true, ticks: { color: '#8e97ab', font: { family: 'Inter', size: 12 }, callback: v => v.toLocaleString() }, grid: { color: 'rgba(255,255,255,.06)' } } } }
-  });
 </script>
 </body>
 </html>
